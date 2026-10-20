@@ -1,0 +1,11 @@
+{
+  "name": "radar-concursos",
+  "version": "2.0.0",
+  "description": "Radar de concursos públicos regionais e nacionais",
+  "bin": {
+    "radar-concursos": "./bin/cli.js"
+  },
+  "scripts": {
+    "start": "python main.py"
+  }
+}
