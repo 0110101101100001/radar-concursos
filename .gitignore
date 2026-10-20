@@ -1,0 +1,16 @@
+__pycache__/
+*.py[cod]
+*$py.class
+venv/
+.venv/
+.env
+radar.db
+*.db
+*.sqlite
+.DS_Store
+.pytest_cache/
+.coverage
+htmlcov/
+node_modules/
+package-lock.json
+*.log
