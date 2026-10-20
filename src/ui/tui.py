@@ -2,7 +2,7 @@ import webbrowser
 from textual import work, on
 from textual.app import App, ComposeResult
 from textual.containers import Horizontal, Vertical
-from textual.widgets import DataTable, Input, Static, Label, Select, Button, Footer, Header
+from textual.widgets import DataTable, Input, Static, Button, Footer
 from textual.binding import Binding
 
 from src.scrapers.pci import PCIScraper
@@ -13,204 +13,223 @@ from src.scrapers.quadrix import QuadrixScraper
 from src.core.filter import processar_e_filtrar
 
 REGIOES = [
-    ("Norte", "norte"), ("Nordeste", "nordeste"), ("Centro-Oeste", "centrooeste"),
+    ("Nordeste", "nordeste"), ("Norte", "norte"), ("C-Oeste", "centrooeste"),
     ("Sudeste", "sudeste"), ("Sul", "sul"), ("Nacional", "nacional")
 ]
 
-CAT_FRAMES = [
-    r"""
-   /\_/\  
-  ( o.o ) 
-   > ^ <  
-""",
-    r"""
-   /\_/\  
-  ( -.o ) 
-   > ^ <  
-""",
-    r"""
-   /\_/\  
-  ( o.o ) 
-   > ^ <  
-""",
-    r"""
-   /\_/\  
-  ( o.- ) 
-   > ^ <  
-""",
-    r"""
-   /\_/\  
-  ( -.- ) 
-   > ^ <  
-""",
-]
+# Gato laranja estático alinhado (todas as linhas começam com braille blank)
+GATO_ESTATICO = r"""
+⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⢠⠏⡆⠀⠀⠀⠀⠀⢀⣀⣤⣤⣤⣀⡀
+⠀⠀⠀⠀⠀⡟⢦⡀ ⠀⠀⣀⠞⠀⠀⠘⡀⢀⡠⠚⣉⠤⠂⠀⠀⠀⠈⠙⢦⡀
+⠀⠀⠀⠀⠀⡇⠀⠉⠒⠊⠁⠀⠀⠀⠀⠀⠘⢧⠔⣉⠤⠒⠒⠉⠉⠀⠀⠀⠀⠹⣆
+⠀⠀⠀⠀⠀⢰⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⢻⠀⠀⣤⠶⠶⢶⡄⠀⠀⠀⠀⢹⡆
+⠀⣀⠤⠒⠒⢺⠒⠀⠀⠀⠀⠀⠀⠀⠀⠤⠊⠀⢸⠀⡿⠀⡀⠀⣀⡟⠀⠀⠀⠀⢸⡇
+⠈⠀⠀⠀⠣⠴⠚⢯⡀⠐⠒⠚⠉⠀⢶⠂⠀⣀⠜⠀⢿⡀⠉⠚⠉⠀⠀⠀⠀⣠⠟
+⠀⠠⠊⠀⠀⠀⠀⠀⠙⠂⣴⠒⠒⣲⢔⠉⠉⣹⣞⣉⣈⠿⢦⣀⣀⣀⣠⡴⠟
 
-CAT_DELAYS = [0.6, 0.2, 0.6, 0.2, 0.8]
+"""
 
 
 class RadarTUI(App):
-    # Desativa totalmente a paleta nativa e opções de tema
     COMMANDS = set()
     ENABLE_COMMAND_PALETTE = False
+    regiao_atual = "nordeste"
 
     CSS = """
+    * {
+        scrollbar-background: #1e1d1d;
+        scrollbar-color: #3b3937;
+        scrollbar-color-hover: #d97757;
+        scrollbar-color-active: #d97757;
+    }
+
     Screen {
-        background: #1e1e1e;
-        color: #cccccc;
+        background: #1e1d1d;
+        color: #e6e4e0;
     }
 
-    Header {
-        background: #1e1e1e;
-        color: #cccccc;
-        border-bottom: solid #333333;
-    }
-
-    Footer {
-        background: #1e1e1e;
-        color: #cccccc;
-        border-top: solid #333333;
-    }
-
-    #sidebar {
-        width: 32;
-        height: 100%;
-        border-right: solid #333333;
+    #top-panel {
+        height: auto;
+        min-height: 9;
+        background: #1e1d1d;
+        border-bottom: solid #3b3937;
         padding: 1 2;
-        background: #1e1e1e;
     }
 
-    #main-content {
-        width: 1fr;
-        height: 100%;
-        padding: 0;
-        background: #1e1e1e;
+    /* Caixa com largura otimizada para o gato estático */
+    #cat-box {
+        width: 44;
+        height: 8;
+        content-align: center middle;
     }
 
     .cat-art {
-        text-align: center;
-        color: #6a9955;
+        color: #d97757;
         text-style: bold;
-        margin-top: 1;
-        margin-bottom: 1;
+    }
+
+    #controls-box {
+        width: 1fr;
+        height: auto;
+        padding-left: 2;
     }
 
     .app-title {
-        text-align: center;
+        color: #d97757;
         text-style: bold;
-        color: #cccccc;
-        margin-bottom: 2;
-    }
-
-    .section-label {
-        color: #888888;
         margin-bottom: 1;
     }
 
-    Select, Input {
-        width: 100%;
-        background: #252526;
-        border: solid #333333;
-        margin-bottom: 2;
-        padding: 0 1;
+    #region-tabs {
+        height: auto;
+        margin-bottom: 1;
     }
 
-    Select:focus, Input:focus {
-        border: solid #6a9955;
-    }
-
-    Button {
-        width: 100%;
-        background: #333333;
-        color: #cccccc;
+    .region-tab {
+        width: auto;
+        min-width: 8;
+        height: 1;
+        background: #1e1d1d;
+        color: #8c8885;
         border: none;
-        text-style: none;
-        margin-top: 1;
-        margin-bottom: 2;
-    }
-
-    Button:hover {
-        background: #6a9955;
-        color: #1e1e1e;
-        text-style: bold;
-    }
-
-    .help-text {
-        color: #555555;
+        margin-right: 2;
         text-align: center;
     }
 
-    DataTable {
-        height: 100%;
+    .region-tab:hover {
+        color: #e6e4e0;
+        text-style: bold;
+    }
+
+    .region-tab.active {
+        color: #d97757;
+        text-style: bold;
+        background: #2a2828;
+    }
+
+    #search-bar {
+        height: auto;
+    }
+
+    Input {
+        width: 1fr;
+        height: 1;
+        background: #2a2828;
         border: none;
-        background: #1e1e1e;
+        padding: 0 1;
+        color: #e6e4e0;
+        margin-right: 2;
+    }
+
+    Input:focus {
+        background: #3b3937;
+        border: none;
+    }
+
+    #btn-varrer {
+        width: 12;
+        height: 1;
+        background: #d97757;
+        color: #1e1d1d;
+        text-style: bold;
+        border: none;
+        margin-right: 2;
+    }
+
+    #btn-varrer:hover {
+        background: #e6e4e0;
+    }
+
+    #status-badge {
+        width: 18;
+        height: 1;
+        content-align: center middle;
+    }
+
+    .status-idle { color: #8c8885; }
+    .status-running { color: #d97757; text-style: bold; }
+
+    DataTable {
+        height: 1fr;
+        border: none;
+        background: #1e1d1d;
     }
 
     DataTable > .datatable--cursor {
-        background: #2a2d2e;
-        color: #cccccc;
+        background: #2a2828;
+        color: #d97757;
         text-style: bold;
+    }
+
+    Footer {
+        background: #1e1d1d;
+        color: #8c8885;
+        border-top: solid #3b3937;
     }
     """
 
     BINDINGS = [
         Binding("q", "quit", "Sair", show=True),
         Binding("r", "atualizar", "Varrer", show=True),
-        Binding("enter", "abrir_link", "Abrir", show=True),
+        Binding("enter", "abrir_link", "Abrir Edital", show=True),
     ]
 
     def compose(self) -> ComposeResult:
-        yield Header()
-        with Horizontal():
-            with Vertical(id="sidebar"):
-                yield Static(CAT_FRAMES[0], id="cat-frame", classes="cat-art")
-                yield Static("RADAR CLI v2.1", classes="app-title")
+        with Vertical():
+            with Horizontal(id="top-panel"):
+                with Vertical(id="cat-box"):
+                    yield Static(GATO_ESTATICO.strip(), classes="cat-art")
 
-                yield Static("Região:", classes="section-label")
-                yield Select([(n, s) for n, s in REGIOES], value="nordeste", id="select-regiao")
-                yield Static(id="regiao-info", classes="section-label")
+                with Vertical(id="controls-box"):
+                    yield Static("RADAR CLI", classes="app-title")
 
-                yield Static("Filtros (vírgula):", classes="section-label")
-                yield Input(value="", id="input-filtros", placeholder="opcional: ce, fortaleza...")
+                    with Horizontal(id="region-tabs"):
+                        for label, val in REGIOES:
+                            classes = "region-tab active" if val == self.regiao_atual else "region-tab"
+                            yield Button(label, id=f"reg-{val}", classes=classes)
 
-                yield Button("Executar Varredura", id="btn-varrer")
+                    with Horizontal(id="search-bar"):
+                        yield Input(value="", id="input-filtros", placeholder=">> filtros: ce, fortaleza, ti...")
+                        yield Button("Varrer", id="btn-varrer")
+                        yield Static("[ IDLE ]", id="status-badge", classes="status-idle")
 
-                yield Static("q: Sair | r: Varrer", classes="help-text")
-                yield Static("tab: Navegar | enter: Abrir", classes="help-text")
-
-            with Vertical(id="main-content"):
-                yield DataTable(id="tabela-concursos")
+            yield DataTable(id="tabela-concursos")
 
         yield Footer()
 
     def on_mount(self) -> None:
         table = self.query_one(DataTable)
         table.cursor_type = "row"
-        table.add_columns("Banca", "Concurso / Vagas", "Status", "Link")
-        self._cat_index = 0
-        self._animate_cat_next()
+        table.add_columns("Status", "Banca", "Concurso / Vagas", "Link")
         self.action_atualizar()
 
-    def _animate_cat_next(self) -> None:
-        """Avança para o próximo frame da animação do gato com delay individual."""
+    def _atualizar_badge_status(self, texto: str, is_running: bool) -> None:
         try:
-            self.query_one("#cat-frame", Static).update(CAT_FRAMES[self._cat_index])
-            delay = CAT_DELAYS[self._cat_index]
-            self._cat_index = (self._cat_index + 1) % len(CAT_FRAMES)
-            self.set_timer(delay, self._animate_cat_next)
-        except Exception:
-            # Previne erros caso a janela seja fechada a meio de um timer
-            pass
-
-    def _atualizar_info_regiao(self, regiao_nome: str) -> None:
-        """Atualiza a linha de informação da região na tela."""
-        try:
-            info = self.query_one("#regiao-info", Static)
-            info.update(f"Região: {regiao_nome}")
+            badge = self.query_one("#status-badge", Static)
+            badge.update(texto)
+            if is_running:
+                badge.remove_class("status-idle")
+                badge.add_class("status-running")
+            else:
+                badge.remove_class("status-running")
+                badge.add_class("status-idle")
         except Exception:
             pass
 
     def on_button_pressed(self, event: Button.Pressed) -> None:
-        if event.button.id == "btn-varrer":
+        btn_id = event.button.id
+        if btn_id == "btn-varrer":
+            self.action_atualizar()
+        elif btn_id and btn_id.startswith("reg-"):
+            nova_regiao = btn_id.replace("reg-", "")
+            self.regiao_atual = nova_regiao
+
+            for btn in self.query(".region-tab"):
+                if btn.id == btn_id:
+                    btn.add_class("active")
+                else:
+                    btn.remove_class("active")
+
             self.action_atualizar()
 
     def on_input_submitted(self, event: Input.Submitted) -> None:
@@ -233,18 +252,13 @@ class RadarTUI(App):
 
     @work(exclusive=True, thread=True)
     def action_atualizar(self) -> None:
-        self.call_from_thread(self.notify, "Extraindo dados da web...", title="Processando")
+        self.call_from_thread(self._atualizar_badge_status, "[ VARRENDO... ]", True)
 
         def get_inputs():
-            regiao = self.query_one("#select-regiao", Select).value
             filtros_raw = self.query_one("#input-filtros", Input).value
-            return regiao, [f.strip() for f in filtros_raw.split(",") if f.strip()]
+            return self.regiao_atual, [f.strip() for f in filtros_raw.split(",") if f.strip()]
 
         regiao, filtros = self.call_from_thread(get_inputs)
-
-        # Atualiza a info de região na tela
-        regiao_nome = next((n for n, s in REGIOES if s == regiao), regiao)
-        self.call_from_thread(self._atualizar_info_regiao, regiao_nome)
 
         dados_brutos = []
         dados_brutos.extend(PCIScraper().extrair(regiao_url=regiao))
@@ -254,17 +268,14 @@ class RadarTUI(App):
         dados_brutos.extend(QuadrixScraper().extrair())
 
         df = processar_e_filtrar(dados_brutos, filtros, regiao)
-        
-        self.call_from_thread(self._atualizar_tabela, df, filtros, regiao_nome)
+        self.call_from_thread(self._atualizar_tabela, df)
 
-    def _atualizar_tabela(self, df, filtros, regiao_nome: str) -> None:
+    def _atualizar_tabela(self, df) -> None:
         table = self.query_one(DataTable)
         table.clear()
 
         if df is not None and not df.empty:
             for _, row in df.iterrows():
-                table.add_row(row['fonte'], row['titulo'], row['status'], row['link'])
-            self.notify(f"{len(df)} editais listados ({regiao_nome}).", title="Concluído")
-        else:
-            filtros_str = ', '.join(filtros) if filtros else "sem filtro extra"
-            self.notify(f"Sem resultados para '{filtros_str}' na região {regiao_nome}.", title="Concluído")
+                table.add_row(row['status'], row['fonte'], row['titulo'], row['link'])
+
+        self._atualizar_badge_status("[ IDLE ]", False)
